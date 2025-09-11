@@ -12,8 +12,8 @@ from launch_ros.actions import Node
 def generate_launch_description():
     
     # Find path
-    config_file_dir = os.path.join(get_package_share_directory("fast_livo"), "config")
-    rviz_config_file = os.path.join(get_package_share_directory("fast_livo"), "rviz_cfg", "fast_livo2.rviz")
+    config_file_dir = os.path.join(get_package_share_directory("terra_livo"), "config")
+    rviz_config_file = os.path.join(get_package_share_directory("terra_livo"), "rviz_cfg", "terra_livo2.rviz")
 
     #Load parameters
     avia_config_cmd = os.path.join(config_file_dir, "avia.yaml")
@@ -29,7 +29,7 @@ def generate_launch_description():
     avia_config_arg = DeclareLaunchArgument(
         'avia_params_file',
         default_value=avia_config_cmd,
-        description='Full path to the ROS2 parameters file to use for fast_livo2 nodes',
+        description='Full path to the ROS2 parameters file to use for terra_livo2 nodes',
     )
 
     camera_config_arg = DeclareLaunchArgument(
@@ -74,7 +74,7 @@ def generate_launch_description():
 
         # republish compressed image to raw image
         # https://robotics.stackexchange.com/questions/110939/how-do-i-remap-compressed-video-to-raw-video-in-ros2
-        # ros2 run image_transport republish compressed raw --ros-args --remap in:=/left_camera/image --remap out:=/left_camera/image
+        # ros2 run image_transport republish compressed raw --ros-args --remap in:=/camera/image --remap out:=/camera/image
         Node(
             package="image_transport",
             executable="republish",
@@ -84,16 +84,16 @@ def generate_launch_description():
                 'raw',
             ],
             remappings=[
-                ("in",  "/left_camera/image"), 
-                ("out", "/left_camera/image")
+                ("in",  "/camera/image"), 
+                ("out", "/camera/image")
             ],
             output="screen",
             respawn=use_respawn,
         ),
         
         Node(
-            package="fast_livo",
-            executable="fastlivo_mapping",
+            package="terra_livo",
+            executable="terralivo_mapping",
             name="laserMapping",
             parameters=[
                 avia_params_file,

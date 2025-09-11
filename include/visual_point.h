@@ -1,14 +1,21 @@
-/* 
-This file is part of FAST-LIVO2: Fast, Direct LiDAR-Inertial-Visual Odometry.
-
-Developer: Chunran Zheng <zhengcr@connect.hku.hk>
-
-For commercial use, please contact me at <zhengcr@connect.hku.hk> or
-Prof. Fu Zhang at <fuzhang@hku.hk>.
-
-This file is subject to the terms and conditions outlined in the 'LICENSE' file,
-which is included as part of this source code package.
-*/
+/*
+ * TERRA-LIVO2: Fast, Direct LiDAR-Inertial-Visual Odometry
+ * Copyright (C) 2025 SanchoLi27 <hdalhd1104@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ */
 
 #ifndef LIVO_POINT_H_
 #define LIVO_POINT_H_

@@ -1,20 +1,18 @@
 <?xml version="1.0"?>
 <package format="3">
-  <name>fast_livo</name>
+  <name>terra_livo</name>
   <version>0.0.0</version>
 
   <description>
-    This is a modified version of LOAM which is original algorithm
-    is described in the following paper:
-    J. Zhang and S. Singh. LOAM: Lidar Odometry and Mapping in Real-time.
-      Robotics: Science and Systems Conference (RSS). Berkeley, CA, July 2014.
+    TERRA-LIVO2: Fast, Direct LiDAR-Inertial-Visual Odometry
+    A robust and efficient visual-inertial-lidar odometry system for real-time applications.
   </description>
 
-  <maintainer email="dev@livoxtech.com">claydergc</maintainer>
+  <maintainer email="hdalhd1104@gmail.com">SanchoLi27</maintainer>
 
-  <license>BSD</license>
+  <license>GPL-2.0</license>
 
-  <author email="zhangji@cmu.edu">Ji Zhang</author>
+  <author email="hdalhd1104@gmail.com">SanchoLi27</author>
   
   <buildtool_depend>ament_cmake</buildtool_depend>
 

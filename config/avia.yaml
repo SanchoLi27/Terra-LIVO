@@ -1,7 +1,7 @@
 /**:
   ros__parameters:
     common:
-      img_topic: "/left_camera/image"
+      img_topic: "/camera/image"
       lid_topic: "/livox/lidar"
       imu_topic: "/livox/imu"
       img_en: 1
@@ -77,7 +77,7 @@
       blind_rgb_points: 0.0
 
     evo:
-      seq_name: "CBD_Building_01"
+      seq_name: "Building_01"
       pose_output_en: false
 
     pcd_save:

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
-project(fast_livo)
+project(terra_livo)
 
 set(CMAKE_BUILD_TYPE "Release")
 message(STATUS "Build Type: ${CMAKE_BUILD_TYPE}")
@@ -158,12 +158,12 @@ target_link_libraries(pre ${COMMON_DEPENDENCIES})
 target_link_libraries(imu_proc ${COMMON_DEPENDENCIES})
 
 # Add the main executable
-add_executable(fastlivo_mapping src/main.cpp)
+add_executable(terralivo_mapping src/main.cpp)
 
-ament_target_dependencies(fastlivo_mapping ${dependencies})
+ament_target_dependencies(terralivo_mapping ${dependencies})
 
 # Link libraries to the executable
-target_link_libraries(fastlivo_mapping
+target_link_libraries(terralivo_mapping
   laser_mapping
   vio
   lio
@@ -177,12 +177,12 @@ target_link_libraries(fastlivo_mapping
 
 # Link mimalloc if found
 if(mimalloc_FOUND)
-  target_link_libraries(fastlivo_mapping mimalloc)
+  target_link_libraries(terralivo_mapping mimalloc)
 endif()
 
 # Install the executable
 install(TARGETS
-  fastlivo_mapping
+  terralivo_mapping
   DESTINATION lib/${PROJECT_NAME}
 )
 
