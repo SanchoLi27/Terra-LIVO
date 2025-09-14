@@ -48,6 +48,9 @@ LIVMapper::LIVMapper(rclcpp::Node::SharedPtr &node, std::string node_name)
   pcl_wait_save_intensity.reset(new PointCloudXYZI());
   voxelmap_manager.reset(new VoxelMapManager(voxel_config, voxel_map));
   vio_manager.reset(new VIOManager());
+  
+  // 初始化自适应融合模块
+  initializeAdaptiveFusion();
   root_dir = ROOT_DIR;
   initializeFiles();
   initializeComponents(this->node);          // initialize components errors
@@ -336,6 +339,9 @@ void LIVMapper::processImu()
 
 void LIVMapper::stateEstimationAndMapping() 
 {
+  // 在状态估计前进行传感器质量评估和权重更新
+  updateSensorQualityAssessment();
+  
   switch (LidarMeasures.lio_vio_flg) 
   {
     case VIO:
@@ -929,6 +935,9 @@ void LIVMapper::img_cbk(const sensor_msgs::msg::Image::ConstSharedPtr &msg_in)
   cv::Mat img_cur = getImageFromMsg(msg);
   img_buffer.push_back(img_cur);
   img_time_buffer.push_back(img_time_correct);
+  
+  // 更新当前图像以供自适应融合使用
+  current_image_ = img_cur.clone();
 
   // ROS_INFO("Correct Image time: %.6f", img_time_correct);
 
@@ -1380,4 +1389,147 @@ void LIVMapper::publish_path(const rclcpp::Publisher<nav_msgs::msg::Path>::Share
   msg_body_pose.header.frame_id = "camera_init";
   path.poses.push_back(msg_body_pose);
   pubPath->publish(path);
+}
+
+// =============================================================================
+// 自适应融合相关方法实现
+// =============================================================================
+
+void LIVMapper::initializeAdaptiveFusion()
+{
+  // 初始化传感器质量评估器
+  sensor_quality_assessor_ = std::make_unique<SensorQualityAssessor>();
+  
+  // 设置评估参数（可以从配置文件读取）
+  sensor_quality_assessor_->setAssessmentParameters(
+    1000.0,  // LiDAR密度阈值
+    200.0,   // 视觉特征阈值
+    200.0    // IMU频率阈值
+  );
+  
+  // 初始化自适应权重计算器
+  AdaptiveWeightCalculator::CalculationParams params;
+  params.quality_sensitivity = 2.0;
+  params.min_weight_threshold = 0.05;
+  params.max_weight_threshold = 0.85;
+  params.smoothing_factor = 0.8;
+  params.imu_base_weight = 0.15;
+  params.max_weight_change_rate = 0.1;
+  
+  adaptive_weight_calculator_ = std::make_unique<AdaptiveWeightCalculator>(params);
+  
+  // 初始化权重
+  current_fusion_weights_ = SensorFusionWeights(0.4, 0.4, 0.2, 0.5);
+  
+  // 初始化状态变量
+  adaptive_fusion_enabled_ = true;
+  visual_feature_count_ = 0;
+  visual_match_count_ = 0;
+  
+  // 设置权重变化回调（用于日志记录）
+  adaptive_weight_calculator_->setWeightChangeCallback(
+    [this](const SensorFusionWeights& weights) {
+      if (adaptive_fusion_enabled_) {
+        this->logFusionWeights();
+      }
+    }
+  );
+  
+  // 在voxelmap_manager中启用自适应融合
+  if (voxelmap_manager) {
+    voxelmap_manager->enableAdaptiveFusion(true);
+    voxelmap_manager->setAdaptiveFusionWeights(
+      current_fusion_weights_.lidar_weight,
+      current_fusion_weights_.visual_weight,
+      current_fusion_weights_.imu_weight
+    );
+  }
+  
+  RCLCPP_INFO(node->get_logger(), "Adaptive fusion system initialized");
+}
+
+void LIVMapper::updateSensorQualityAssessment()
+{
+  if (!adaptive_fusion_enabled_ || !sensor_quality_assessor_ || !adaptive_weight_calculator_) {
+    return;
+  }
+  
+  try {
+    // 1. 评估LiDAR数据质量
+    LidarQualityMetrics lidar_quality;
+    if (voxelmap_manager && feats_undistort && !feats_undistort->empty()) {
+      // 获取当前的点到平面匹配结果
+      std::vector<PointToPlane> current_matches;
+      // 注意：这里需要从voxelmap_manager获取最新的匹配结果
+      // 实际实现中可能需要在VoxelMapManager中添加获取匹配结果的接口
+      lidar_quality = sensor_quality_assessor_->assessLidarQuality(feats_undistort, current_matches);
+    }
+    
+    // 2. 评估视觉数据质量
+    VisualQualityMetrics visual_quality;
+    if (!current_image_.empty()) {
+      visual_quality = sensor_quality_assessor_->assessVisualQuality(
+        current_image_, visual_feature_count_, visual_match_count_
+      );
+    }
+    
+    // 3. 评估IMU数据质量
+    ImuQualityMetrics imu_quality;
+    if (!LidarMeasures.measures.empty() && !LidarMeasures.measures.back().imu.empty()) {
+      imu_quality = sensor_quality_assessor_->assessImuQuality(LidarMeasures.measures.back().imu);
+    }
+    
+    // 4. 计算自适应权重
+    current_fusion_weights_ = adaptive_weight_calculator_->calculateAdaptiveWeights(
+      lidar_quality, visual_quality, imu_quality, AdaptiveWeightCalculator::HYBRID
+    );
+    
+    // 5. 应用新权重
+    applyAdaptiveFusionWeights();
+    
+  } catch (const std::exception& e) {
+    RCLCPP_WARN(node->get_logger(), "Error in sensor quality assessment: %s", e.what());
+  }
+}
+
+void LIVMapper::applyAdaptiveFusionWeights()
+{
+  if (!adaptive_fusion_enabled_ || !voxelmap_manager) {
+    return;
+  }
+  
+  // 将权重应用到voxel地图管理器
+  voxelmap_manager->setAdaptiveFusionWeights(
+    current_fusion_weights_.lidar_weight,
+    current_fusion_weights_.visual_weight,
+    current_fusion_weights_.imu_weight
+  );
+  
+  // 可以在这里添加其他需要应用权重的模块
+  // 例如：VIO管理器的权重调整
+  if (vio_manager) {
+    // VIO管理器可能需要单独的接口来应用视觉权重
+    // vio_manager->setVisualWeight(current_fusion_weights_.visual_weight);
+  }
+}
+
+void LIVMapper::logFusionWeights() const
+{
+  if (!adaptive_fusion_enabled_) {
+    return;
+  }
+  
+  static int log_counter = 0;
+  log_counter++;
+  
+  // 每10次才记录一次日志，避免日志过多
+  if (log_counter % 10 == 0) {
+    RCLCPP_INFO(node->get_logger(), 
+      "Adaptive Fusion Weights - LiDAR: %.3f, Visual: %.3f, IMU: %.3f, Confidence: %.3f",
+      current_fusion_weights_.lidar_weight,
+      current_fusion_weights_.visual_weight,
+      current_fusion_weights_.imu_weight,
+      current_fusion_weights_.total_confidence
+    );
+  }
 }

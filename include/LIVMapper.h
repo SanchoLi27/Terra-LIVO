@@ -23,6 +23,8 @@
 #include "IMU_Processing.h"
 #include "vio.h"
 #include "preprocess.h"
+#include "sensor_quality_assessor.h"
+#include "adaptive_weight_calculator.h"
 #include <cv_bridge/cv_bridge.hpp>
 #include <image_transport/image_transport.hpp>
 #include <tf2_ros/transform_broadcaster.h>
@@ -70,6 +72,14 @@ public:
   template <typename T> void pointBodyToWorld(const Eigen::Matrix<T, 3, 1> &pi, Eigen::Matrix<T, 3, 1> &po);
   template <typename T> Eigen::Matrix<T, 3, 1> pointBodyToWorld(const Eigen::Matrix<T, 3, 1> &pi);
   cv::Mat getImageFromMsg(const sensor_msgs::msg::Image::ConstSharedPtr &img_msg);
+  
+  // 新增：自适应融合相关方法
+  void initializeAdaptiveFusion();
+  void updateSensorQualityAssessment();
+  void applyAdaptiveFusionWeights();
+  SensorFusionWeights getCurrentFusionWeights() const { return current_fusion_weights_; }
+  void enableAdaptiveFusion(bool enable) { adaptive_fusion_enabled_ = enable; }
+  void logFusionWeights() const;
 
   std::mutex mtx_buffer, mtx_buffer_imu_prop;
   std::condition_variable sig_buffer;
@@ -166,6 +176,17 @@ public:
   PreprocessPtr p_pre;
   ImuProcessPtr p_imu;
   VoxelMapManagerPtr voxelmap_manager;
+  
+  // 新增：传感器质量评估和自适应权重计算模块
+  std::unique_ptr<SensorQualityAssessor> sensor_quality_assessor_;
+  std::unique_ptr<AdaptiveWeightCalculator> adaptive_weight_calculator_;
+  SensorFusionWeights current_fusion_weights_;
+  
+  // 自适应融合相关参数
+  bool adaptive_fusion_enabled_;
+  int visual_feature_count_;
+  int visual_match_count_;
+  cv::Mat current_image_;
   VIOManagerPtr vio_manager;
 
   rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr plane_pub;

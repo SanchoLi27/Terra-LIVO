@@ -417,6 +417,11 @@ void VoxelMapManager::StateEstimation(StatesGroup &state_propagat)
 
     BuildResidualListOMP(pv_list_, ptpl_list_);
 
+    // 应用自适应权重到残差
+    if (adaptive_fusion_enabled_) {
+      applyWeightsToResiduals(ptpl_list_);
+    }
+
     // build_residual_time += omp_get_wtime() - t1;
 
     for (int i = 0; i < ptpl_list_.size(); i++)
@@ -991,4 +996,70 @@ void VoxelMapManager::clearMemOutOfMap(const int& x_max,const int& x_min,const i
   }
   std::cout<<RED<<"[DEBUG]: Delete "<<delete_voxel_cout<<" root voxels"<<RESET<<"\n";
   // std::cout<<RED<<"[DEBUG]: Delete "<<delete_voxel_cout<<" voxels using "<<delete_time<<" s"<<RESET<<"\n";
+}
+
+// =============================================================================
+// 自适应融合权重应用方法实现
+// =============================================================================
+
+void VoxelMapManager::setAdaptiveFusionWeights(double lidar_weight, double visual_weight, double imu_weight)
+{
+  current_lidar_weight_ = lidar_weight;
+  current_visual_weight_ = visual_weight;
+  current_imu_weight_ = imu_weight;
+  
+  // 权重归一化
+  double total_weight = current_lidar_weight_ + current_visual_weight_ + current_imu_weight_;
+  if (total_weight > 1e-6) {
+    current_lidar_weight_ /= total_weight;
+    current_visual_weight_ /= total_weight;
+    current_imu_weight_ /= total_weight;
+  }
+}
+
+void VoxelMapManager::getAdaptiveFusionWeights(double& lidar_weight, double& visual_weight, double& imu_weight) const
+{
+  lidar_weight = current_lidar_weight_;
+  visual_weight = current_visual_weight_;
+  imu_weight = current_imu_weight_;
+}
+
+void VoxelMapManager::applyWeightsToResiduals(std::vector<PointToPlane> &ptpl_list)
+{
+  if (!adaptive_fusion_enabled_ || ptpl_list.empty()) {
+    return;
+  }
+  
+  // 对LiDAR残差应用权重
+  // 通过调整信息矩阵来实现权重应用
+  for (auto& ptpl : ptpl_list) {
+    // 假设所有残差都来自LiDAR（在当前架构中）
+    // 实际应用中可能需要区分不同来源的残差
+    
+    // 方法1：直接缩放残差
+    // ptpl.dis_to_plane_ *= current_lidar_weight_;
+    
+    // 方法2：调整方差（推荐，更符合概率理论）
+    if (ptpl.plane_var_.rows() > 0 && ptpl.plane_var_.cols() > 0) {
+      // 降低权重等同于增加不确定性（增大方差）
+      double weight_factor = 1.0 / (current_lidar_weight_ + 1e-6);
+      ptpl.plane_var_ *= weight_factor;
+    }
+  }
+}
+
+void VoxelMapManager::applyWeightsToVisualResiduals(std::vector<PointToPlane> &visual_ptpl_list)
+{
+  if (!adaptive_fusion_enabled_ || visual_ptpl_list.empty()) {
+    return;
+  }
+  
+  // 对视觉残差应用权重
+  for (auto& ptpl : visual_ptpl_list) {
+    // 应用视觉权重
+    if (ptpl.plane_var_.rows() > 0 && ptpl.plane_var_.cols() > 0) {
+      double weight_factor = 1.0 / (current_visual_weight_ + 1e-6);
+      ptpl.plane_var_ *= weight_factor;
+    }
+  }
 }

@@ -139,15 +139,21 @@ add_library(pre src/preprocess.cpp)
 add_library(imu_proc src/IMU_Processing.cpp)
 add_library(laser_mapping src/LIVMapper.cpp)
 add_library(utils src/utils.cpp)
+add_library(sensor_quality_assessor src/sensor_quality_assessor.cpp)
+add_library(adaptive_weight_calculator src/adaptive_weight_calculator.cpp)
 
 ament_target_dependencies(vio ${dependencies} )
 ament_target_dependencies(lio ${dependencies})
 ament_target_dependencies(pre ${dependencies})
 ament_target_dependencies(imu_proc ${dependencies})
 ament_target_dependencies(laser_mapping ${dependencies})
+ament_target_dependencies(sensor_quality_assessor ${dependencies})
+ament_target_dependencies(adaptive_weight_calculator ${dependencies})
 
 # linking libraries or executables to public dependencies
 target_link_libraries(laser_mapping 
+    sensor_quality_assessor
+    adaptive_weight_calculator
     ${CMAKE_SOURCE_DIR}/../../install/vikit_common/lib/libvikit_common.so 
     ${CMAKE_SOURCE_DIR}/../../install/vikit_ros/lib/libvikit_ros.so
     ${COMMON_DEPENDENCIES}
@@ -156,6 +162,8 @@ target_link_libraries(vio ${COMMON_DEPENDENCIES})
 target_link_libraries(lio utils ${COMMON_DEPENDENCIES})
 target_link_libraries(pre ${COMMON_DEPENDENCIES})
 target_link_libraries(imu_proc ${COMMON_DEPENDENCIES})
+target_link_libraries(sensor_quality_assessor utils ${COMMON_DEPENDENCIES})
+target_link_libraries(adaptive_weight_calculator sensor_quality_assessor ${COMMON_DEPENDENCIES})
 
 # Add the main executable
 add_executable(terralivo_mapping src/main.cpp)
